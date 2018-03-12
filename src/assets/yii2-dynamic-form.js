@@ -8,8 +8,7 @@
 (function ($) {
     var pluginName = 'yiiDynamicForm';
 
-    var regexID = /^(.+?)([-\d-]{1,})(.+)$/i;
-
+    var regexID   = /^(.+?)(-[-\d]{1,}-)(.+)$/i;
     var regexName = /(^.+?)([\[\d{1,}\]]{1,})(\[.+\]$)/i;
 
     $.fn.yiiDynamicForm = function (method) {
@@ -39,11 +38,11 @@
         },
 
         addItem: function (widgetOptions, e, $elem) {
-           _addItem(widgetOptions, e, $elem);
+            _addItem(widgetOptions, e, $elem);
         },
 
         deleteItem: function (widgetOptions, e, $elem) {
-           _deleteItem(widgetOptions, e, $elem);
+            _deleteItem(widgetOptions, e, $elem);
         },
 
         updateContainer: function () {
@@ -81,14 +80,17 @@
             } else if($(this).is('select')) {
                 $(this).find('option:selected').removeAttr("selected");
             } else {
-                $(this).val(''); 
+                $(this).val('');
             }
         });
 
         // remove "error/success" css class
         var yiiActiveFormData = $('#' + widgetOptions.formId).yiiActiveForm('data');
-        $template.find('.' + yiiActiveFormData.settings.errorCssClass).removeClass(yiiActiveFormData.settings.errorCssClass);
-        $template.find('.' + yiiActiveFormData.settings.successCssClass).removeClass(yiiActiveFormData.settings.successCssClass);
+
+        if (typeof yiiActiveFormData !== 'undefined') {
+            $template.find('.' + yiiActiveFormData.settings.errorCssClass).removeClass(yiiActiveFormData.settings.errorCssClass);
+            $template.find('.' + yiiActiveFormData.settings.successCssClass).removeClass(yiiActiveFormData.settings.successCssClass);
+        }
 
         return $template;
     };
@@ -115,7 +117,8 @@
         var count = _count($elem, widgetOptions);
 
         if (count < widgetOptions.limit) {
-            $toclone = widgetOptions.template;
+            //$toclone = widgetOptions.template;
+            $toclone = $(widgetOptions.template);
             $newclone = $toclone.clone(false, false);
 
             if (widgetOptions.insertPosition === 'top') {
@@ -199,7 +202,7 @@
                 matches[2] = matches[2].substring(1, matches[2].length - 1);
                 var identifiers = matches[2].split('-');
                 identifiers[0] = index;
-                
+
                 if (identifiers.length > 1) {
                     var widgetsOptions = [];
                     $elem.parents('div[data-dynamicform]').each(function(i){
@@ -225,7 +228,7 @@
                 $(this).removeClass('field-' + id).addClass('field-' + newID);
             });
             // update "for" attribute
-            $elem.closest(widgetOptions.widgetItem).find("label[for='" + id + "']").attr('for',newID); 
+            $elem.closest(widgetOptions.widgetItem).find("label[for='" + id + "']").attr('for',newID);
         }
 
         return newID;
@@ -320,6 +323,10 @@
 
     var _restoreKrajeeDepdrop = function($elem) {
         var configDepdrop = $.extend(true, {}, eval($elem.attr('data-krajee-depdrop')));
+
+        // PCZ modified
+        // never allow depdrops to initialize and fire a ajax request when they are clones
+        configDepdrop.initialize = false;
         var inputID = $elem.attr('id');
         var matchID = inputID.match(regexID);
 
@@ -332,6 +339,20 @@
             }
         }
 
+        // PCZ modified
+        // change also the depends params id's
+        if (matchID && matchID.length === 4) {
+            for (index = 0; index < configDepdrop.params.length; ++index) {
+                var match = configDepdrop.params[index].match(regexID);
+                if (match && match.length === 4) {
+                    configDepdrop.params[index] = match[1] + matchID[2] + match[3];
+                }
+            }
+        }
+
+        // PCZ modified
+        // don't show the loading wheel as the form is already fully loaded
+        configDepdrop.loading = false;
         $elem.depdrop(configDepdrop);
     };
 
@@ -428,7 +449,10 @@
         var $hasDepdrop = $(widgetOptionsRoot.widgetItem).find('[data-krajee-depdrop]');
         if ($hasDepdrop.length > 0) {
             $hasDepdrop.each(function() {
-                if ($(this).data('select2') === undefined) {
+
+                // PCZ modified
+                // reflect krajee data name change
+                if ($(this).data('krajeeSelect2') === undefined) {
                     $(this).removeData().off();
                     $(this).unbind();
                     _restoreKrajeeDepdrop($(this));
@@ -447,7 +471,9 @@
                     $(this).select2('destroy');
                 }
 
-                var configDepdrop = $(this).data('depdrop');
+                // PCZ modified
+                // reflect krajee data name change
+                var configDepdrop = $(this).data('krajeeDepdrop');
                 if (configDepdrop) {
                     configDepdrop = $.extend(true, {}, configDepdrop);
                     $(this).removeData().off();
@@ -455,19 +481,19 @@
                     _restoreKrajeeDepdrop($(this));
                 }
 
-                $.when($('#' + id).select2(configSelect2)).done(initSelect2Loading(id, '.select2-container--krajee'));
+                $.when($('#' + id + '').select2(configSelect2)).done(initS2Loading(id, '.select2-container--krajee'));
 
                 var kvClose = 'kv_close_' + id.replace(/\-/g, '_');
-
-                $('#' + id).on('select2:opening', function(ev) {
-                    initSelect2DropStyle(id, kvClose, ev);
+                
+                $('#' + id).on('select2-open', function(ev) {
+                    initS2Open(id, kvClose, ev);
                 });
 
                 $('#' + id).on('select2:unselect', function() {
                     window[kvClose] = true;
                 });
 
-               if (configDepdrop) {
+                if (configDepdrop) {
                     var loadingText = (configDepdrop.loadingText) ? configDepdrop.loadingText : 'Loading ...';
                     initDepdropS2(id, loadingText);
                 }
