@@ -386,7 +386,7 @@
         var $hasCheckboxX = $(widgetOptionsRoot.widgetItem).find("[data-krajee-checkboxx]");
         if ($hasCheckboxX.length > 0) {
             $hasCheckboxX.each(function () {
-                if ($(this).attr("class") == "cbx-loading") {
+                if ($(this).hasClass("cbx-loading")) {
                     var ckxOptions = eval($(this).attr("data-krajee-checkboxx"));
                     $(this).checkboxX(ckxOptions);
                 }
